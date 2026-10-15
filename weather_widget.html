@@ -1,0 +1,1106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WeatherAI Desktop Widget</title>
+    <meta name="description" content="Draggable floating WeatherAI chatbot widget for your desktop">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        /* ============================================
+           ROOT & GLOBAL DESIGN TOKENS
+           ============================================ */
+        :root {
+            --bg-desktop: #0a0e1a;
+            --bg-glass: rgba(15, 20, 40, 0.82);
+            --bg-glass-light: rgba(25, 32, 58, 0.75);
+            --bg-input: rgba(12, 16, 32, 0.9);
+            --border-glass: rgba(80, 120, 200, 0.18);
+            --border-glow: rgba(56, 189, 248, 0.35);
+            --accent-sky: #38bdf8;
+            --accent-cyan: #22d3ee;
+            --accent-violet: #a78bfa;
+            --accent-emerald: #34d399;
+            --accent-amber: #fbbf24;
+            --accent-rose: #fb7185;
+            --text-primary: #e8edf5;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --shadow-glow: 0 0 30px rgba(56, 189, 248, 0.15), 0 0 60px rgba(56, 189, 248, 0.05);
+            --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.2);
+            --radius-lg: 20px;
+            --radius-md: 14px;
+            --radius-sm: 10px;
+            --radius-full: 50%;
+            --font-body: 'Inter', -apple-system, sans-serif;
+            --font-display: 'Outfit', 'Inter', sans-serif;
+            --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: var(--font-body);
+            background: var(--bg-desktop);
+            background-image:
+                radial-gradient(ellipse 800px 600px at 20% 30%, rgba(56, 189, 248, 0.06), transparent),
+                radial-gradient(ellipse 600px 500px at 80% 70%, rgba(167, 139, 250, 0.05), transparent),
+                radial-gradient(ellipse 500px 400px at 50% 50%, rgba(34, 211, 153, 0.03), transparent);
+            min-height: 100vh;
+            overflow: hidden;
+            color: var(--text-primary);
+        }
+
+        /* Desktop hint text */
+        .desktop-hint {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            opacity: 0.3;
+            pointer-events: none;
+            user-select: none;
+        }
+        .desktop-hint h2 {
+            font-family: var(--font-display);
+            font-size: 1.6rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+        .desktop-hint p {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        /* ============================================
+           FLOATING DRAGGABLE ORB (CIRCULAR ICON)
+           ============================================ */
+        .widget-orb {
+            position: fixed;
+            bottom: 40px;
+            right: 40px;
+            width: 72px;
+            height: 72px;
+            border-radius: var(--radius-full);
+            background: linear-gradient(145deg, #1a2744, #0f172a);
+            border: 2px solid var(--border-glow);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: grab;
+            z-index: 99999;
+            box-shadow:
+                0 0 24px rgba(56, 189, 248, 0.25),
+                0 0 48px rgba(56, 189, 248, 0.1),
+                0 8px 24px rgba(0, 0, 0, 0.5),
+                inset 0 1px 0 rgba(255, 255, 255, 0.08);
+            transition: transform 0.2s ease, box-shadow 0.3s ease;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+        .widget-orb:hover {
+            transform: scale(1.08);
+            box-shadow:
+                0 0 36px rgba(56, 189, 248, 0.4),
+                0 0 72px rgba(56, 189, 248, 0.15),
+                0 12px 32px rgba(0, 0, 0, 0.5),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+        .widget-orb:active {
+            cursor: grabbing;
+            transform: scale(1.12);
+        }
+        .widget-orb.dragging {
+            cursor: grabbing;
+            transform: scale(1.15);
+            box-shadow:
+                0 0 50px rgba(56, 189, 248, 0.5),
+                0 0 100px rgba(56, 189, 248, 0.2),
+                0 16px 48px rgba(0, 0, 0, 0.6);
+        }
+
+        /* Pulsing ring animation */
+        .orb-pulse {
+            position: absolute;
+            inset: -6px;
+            border-radius: var(--radius-full);
+            border: 2px solid rgba(56, 189, 248, 0.3);
+            animation: orbPulse 2.5s ease-in-out infinite;
+        }
+        @keyframes orbPulse {
+            0%, 100% { transform: scale(1); opacity: 0.6; }
+            50% { transform: scale(1.18); opacity: 0; }
+        }
+
+        /* Second ring offset */
+        .orb-pulse-2 {
+            animation-delay: 1.2s;
+            border-color: rgba(167, 139, 250, 0.2);
+        }
+
+        .orb-icon {
+            font-size: 2rem;
+            line-height: 1;
+            filter: drop-shadow(0 2px 6px rgba(56, 189, 248, 0.4));
+            pointer-events: none;
+        }
+
+        /* Online dot */
+        .orb-status {
+            position: absolute;
+            bottom: 4px;
+            right: 4px;
+            width: 14px;
+            height: 14px;
+            border-radius: var(--radius-full);
+            background: var(--accent-emerald);
+            border: 2.5px solid #0f172a;
+            box-shadow: 0 0 8px rgba(34, 211, 153, 0.6);
+            pointer-events: none;
+        }
+
+        /* ============================================
+           CHAT WINDOW (POPUP)
+           ============================================ */
+        .chat-popup {
+            position: fixed;
+            bottom: 130px;
+            right: 30px;
+            width: 420px;
+            height: 620px;
+            max-height: calc(100vh - 160px);
+            max-width: calc(100vw - 40px);
+            border-radius: var(--radius-lg);
+            background: var(--bg-glass);
+            backdrop-filter: blur(24px) saturate(1.4);
+            -webkit-backdrop-filter: blur(24px) saturate(1.4);
+            border: 1px solid var(--border-glass);
+            box-shadow: var(--shadow-card), var(--shadow-glow);
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+            z-index: 99998;
+            animation: popupSlideIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+        .chat-popup.visible {
+            display: flex;
+        }
+        .chat-popup.closing {
+            animation: popupSlideOut 0.25s ease-in forwards;
+        }
+
+        @keyframes popupSlideIn {
+            from { opacity: 0; transform: translateY(24px) scale(0.92); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes popupSlideOut {
+            from { opacity: 1; transform: translateY(0) scale(1); }
+            to { opacity: 0; transform: translateY(24px) scale(0.92); }
+        }
+
+        /* --- Header --- */
+        .popup-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 18px;
+            background: linear-gradient(135deg, rgba(56, 189, 248, 0.08), rgba(167, 139, 250, 0.06));
+            border-bottom: 1px solid var(--border-glass);
+        }
+        .popup-header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .popup-avatar {
+            width: 42px;
+            height: 42px;
+            border-radius: var(--radius-full);
+            background: linear-gradient(145deg, rgba(56, 189, 248, 0.15), rgba(167, 139, 250, 0.1));
+            border: 1.5px solid var(--border-glow);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+        }
+        .popup-title-block h3 {
+            font-family: var(--font-display);
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1.2;
+        }
+        .popup-loc-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 3px;
+        }
+        .popup-loc-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: var(--radius-full);
+            background: var(--accent-emerald);
+            box-shadow: 0 0 6px rgba(34, 211, 153, 0.5);
+        }
+        .popup-loc-text {
+            font-size: 0.72rem;
+            color: var(--accent-cyan);
+            font-weight: 500;
+        }
+        .popup-header-actions {
+            display: flex;
+            gap: 4px;
+        }
+        .popup-action-btn {
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: var(--radius-sm);
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition-smooth);
+        }
+        .popup-action-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+        }
+
+        /* --- Location Banner --- */
+        .popup-loc-banner {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 18px;
+            background: rgba(56, 189, 248, 0.04);
+            border-bottom: 1px solid rgba(56, 189, 248, 0.08);
+            font-size: 0.78rem;
+            color: var(--text-secondary);
+        }
+        .popup-loc-banner strong {
+            color: var(--accent-sky);
+        }
+        .change-loc-btn {
+            margin-left: auto;
+            padding: 3px 10px;
+            border-radius: 20px;
+            border: 1px solid var(--border-glow);
+            background: rgba(56, 189, 248, 0.08);
+            color: var(--accent-sky);
+            font-size: 0.7rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+        }
+        .change-loc-btn:hover {
+            background: rgba(56, 189, 248, 0.18);
+        }
+
+        /* --- Quick Chips --- */
+        .popup-chips {
+            display: flex;
+            gap: 6px;
+            padding: 10px 16px;
+            overflow-x: auto;
+            border-bottom: 1px solid var(--border-glass);
+            scrollbar-width: none;
+        }
+        .popup-chips::-webkit-scrollbar { display: none; }
+        .popup-chip {
+            flex-shrink: 0;
+            padding: 5px 12px;
+            border-radius: 20px;
+            border: 1px solid var(--border-glass);
+            background: rgba(255, 255, 255, 0.03);
+            color: var(--text-secondary);
+            font-size: 0.72rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            white-space: nowrap;
+        }
+        .popup-chip:hover {
+            background: rgba(56, 189, 248, 0.1);
+            border-color: var(--border-glow);
+            color: var(--accent-sky);
+        }
+
+        /* --- Messages Area --- */
+        .popup-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(56, 189, 248, 0.15) transparent;
+        }
+        .popup-messages::-webkit-scrollbar { width: 5px; }
+        .popup-messages::-webkit-scrollbar-track { background: transparent; }
+        .popup-messages::-webkit-scrollbar-thumb {
+            background: rgba(56, 189, 248, 0.15);
+            border-radius: 10px;
+        }
+
+        /* Message Bubbles */
+        .msg {
+            display: flex;
+            gap: 10px;
+            animation: msgFadeIn 0.3s ease;
+        }
+        @keyframes msgFadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .msg-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: var(--radius-full);
+            background: linear-gradient(135deg, rgba(56, 189, 248, 0.12), rgba(167, 139, 250, 0.08));
+            border: 1px solid var(--border-glass);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.95rem;
+            flex-shrink: 0;
+        }
+        .msg.user-msg .msg-avatar {
+            background: linear-gradient(135deg, rgba(167, 139, 250, 0.15), rgba(56, 189, 248, 0.08));
+        }
+
+        .msg-bubble {
+            max-width: 85%;
+            padding: 12px 16px;
+            border-radius: 16px 16px 16px 4px;
+            background: var(--bg-glass-light);
+            border: 1px solid var(--border-glass);
+            font-size: 0.85rem;
+            line-height: 1.55;
+            color: var(--text-primary);
+        }
+        .msg.user-msg .msg-bubble {
+            border-radius: 16px 16px 4px 16px;
+            background: linear-gradient(135deg, rgba(56, 189, 248, 0.12), rgba(167, 139, 250, 0.08));
+            border-color: var(--border-glow);
+            margin-left: auto;
+        }
+        .msg.user-msg {
+            flex-direction: row-reverse;
+        }
+
+        /* Markdown inside bot bubbles */
+        .msg-bubble h1, .msg-bubble h2, .msg-bubble h3 {
+            font-family: var(--font-display);
+            color: var(--accent-sky);
+            margin: 0.6em 0 0.3em 0;
+            font-size: 0.95rem;
+            font-weight: 700;
+        }
+        .msg-bubble h1 { font-size: 1.05rem; }
+        .msg-bubble h2 { font-size: 0.95rem; }
+        .msg-bubble h3 { font-size: 0.88rem; color: var(--accent-cyan); }
+        .msg-bubble p { margin: 0.3em 0; }
+        .msg-bubble ul, .msg-bubble ol {
+            margin: 0.4em 0;
+            padding-left: 1.2em;
+        }
+        .msg-bubble li { margin: 0.2em 0; }
+        .msg-bubble strong { color: var(--accent-sky); font-weight: 600; }
+        .msg-bubble em { color: var(--accent-cyan); font-style: italic; }
+        .msg-bubble blockquote {
+            border-left: 3px solid var(--accent-sky);
+            padding: 6px 12px;
+            margin: 0.5em 0;
+            background: rgba(56, 189, 248, 0.05);
+            border-radius: 0 8px 8px 0;
+            font-size: 0.82rem;
+        }
+        .msg-bubble table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 0.5em 0;
+            font-size: 0.78rem;
+        }
+        .msg-bubble th, .msg-bubble td {
+            padding: 5px 8px;
+            border: 1px solid var(--border-glass);
+            text-align: left;
+        }
+        .msg-bubble th {
+            background: rgba(56, 189, 248, 0.08);
+            color: var(--accent-sky);
+            font-weight: 600;
+        }
+        .msg-bubble code {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 1px 5px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+
+        /* Sources footer */
+        .msg-sources {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid var(--border-glass);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            align-items: center;
+        }
+        .source-tag {
+            padding: 2px 8px;
+            border-radius: 12px;
+            background: rgba(56, 189, 248, 0.06);
+            border: 1px solid rgba(56, 189, 248, 0.12);
+            font-size: 0.65rem;
+            color: var(--text-muted);
+        }
+        .msg-model-tag {
+            margin-left: auto;
+            font-size: 0.63rem;
+            color: var(--text-muted);
+        }
+
+        /* --- Thought Stream (shown during reasoning) --- */
+        .popup-thought-stream {
+            display: none;
+            padding: 8px 16px 10px;
+            background: rgba(56, 189, 248, 0.03);
+            border-top: 1px solid rgba(56, 189, 248, 0.08);
+            max-height: 120px;
+            overflow-y: auto;
+        }
+        .popup-thought-stream.active { display: block; }
+        .thought-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+        .thought-spinner {
+            width: 8px;
+            height: 8px;
+            border-radius: var(--radius-full);
+            background: var(--accent-cyan);
+            animation: thoughtPulse 1s ease-in-out infinite;
+        }
+        @keyframes thoughtPulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.7); }
+        }
+        .thought-label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--accent-cyan);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .thought-step {
+            font-size: 0.72rem;
+            color: var(--text-secondary);
+            padding: 3px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+        }
+        .thought-step-title {
+            color: var(--accent-sky);
+            font-weight: 600;
+        }
+
+        /* --- Input Area --- */
+        .popup-input-area {
+            padding: 12px 14px;
+            border-top: 1px solid var(--border-glass);
+            background: rgba(10, 14, 26, 0.6);
+        }
+        .popup-input-form {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--bg-input);
+            border: 1px solid var(--border-glass);
+            border-radius: 28px;
+            padding: 4px 6px 4px 16px;
+            transition: var(--transition-smooth);
+        }
+        .popup-input-form:focus-within {
+            border-color: var(--accent-sky);
+            box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.1);
+        }
+        .popup-input {
+            flex: 1;
+            border: none;
+            background: transparent;
+            color: var(--text-primary);
+            font-size: 0.85rem;
+            font-family: var(--font-body);
+            outline: none;
+            padding: 8px 0;
+        }
+        .popup-input::placeholder {
+            color: var(--text-muted);
+        }
+        .popup-send-btn {
+            width: 38px;
+            height: 38px;
+            border-radius: var(--radius-full);
+            border: none;
+            background: linear-gradient(135deg, var(--accent-sky), var(--accent-cyan));
+            color: #0a0e1a;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition-smooth);
+            flex-shrink: 0;
+        }
+        .popup-send-btn:hover {
+            transform: scale(1.08);
+            box-shadow: 0 0 16px rgba(56, 189, 248, 0.4);
+        }
+        .popup-send-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* ============================================
+           TYPING INDICATOR
+           ============================================ */
+        .typing-indicator {
+            display: flex;
+            gap: 5px;
+            padding: 10px 16px;
+        }
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: var(--radius-full);
+            background: var(--accent-sky);
+            animation: typingBounce 1.4s ease-in-out infinite;
+        }
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typingBounce {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.3; }
+            30% { transform: translateY(-8px); opacity: 1; }
+        }
+
+        /* ============================================
+           RESPONSIVE
+           ============================================ */
+        @media (max-width: 480px) {
+            .chat-popup {
+                width: calc(100vw - 20px);
+                height: calc(100vh - 100px);
+                right: 10px;
+                bottom: 90px;
+                border-radius: var(--radius-md);
+            }
+            .widget-orb {
+                width: 60px;
+                height: 60px;
+            }
+            .orb-icon { font-size: 1.6rem; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Background hint -->
+    <div class="desktop-hint">
+        <h2>🌪️ WeatherAI Desktop Widget</h2>
+        <p>Drag the floating orb anywhere · Click to chat</p>
+    </div>
+
+    <!-- ==============================
+         DRAGGABLE FLOATING ORB
+         ============================== -->
+    <div class="widget-orb" id="widgetOrb" role="button" tabindex="0" aria-label="Open WeatherAI Chat">
+        <div class="orb-pulse"></div>
+        <div class="orb-pulse orb-pulse-2"></div>
+        <span class="orb-icon">🌪️</span>
+        <span class="orb-status"></span>
+    </div>
+
+    <!-- ==============================
+         CHAT POPUP WINDOW
+         ============================== -->
+    <div class="chat-popup" id="chatPopup" role="dialog" aria-label="WeatherAI Chat Window">
+        <!-- Header -->
+        <div class="popup-header">
+            <div class="popup-header-left">
+                <div class="popup-avatar">🌪️</div>
+                <div class="popup-title-block">
+                    <h3>WeatherAI Agent</h3>
+                    <div class="popup-loc-row">
+                        <span class="popup-loc-dot"></span>
+                        <span class="popup-loc-text" id="headerLocText">Mumbai, India (Auto)</span>
+                    </div>
+                </div>
+            </div>
+            <div class="popup-header-actions">
+                <button class="popup-action-btn" id="clearBtn" title="Clear chat">🗑️</button>
+                <button class="popup-action-btn" id="minimizeBtn" title="Minimize">—</button>
+                <button class="popup-action-btn" id="closeBtn" title="Close">✕</button>
+            </div>
+        </div>
+
+        <!-- Location Banner -->
+        <div class="popup-loc-banner">
+            <span>🛰️</span>
+            <span>Location: <strong id="bannerLocName">Mumbai, India</strong></span>
+            <button class="change-loc-btn" id="changeLocBtn">Change</button>
+        </div>
+
+        <!-- Quick Chips -->
+        <div class="popup-chips" id="quickChips">
+            <button class="popup-chip" data-prompt="what is todays weather">🌤️ Today's Weather</button>
+            <button class="popup-chip" data-prompt="will it rain today?">☔ Rain Today?</button>
+            <button class="popup-chip" data-prompt="what should I wear today?">👕 What to Wear?</button>
+            <button class="popup-chip" data-prompt="check air quality AQI">🍃 Air Quality</button>
+            <button class="popup-chip" data-prompt="5 day forecast">📅 5-Day Forecast</button>
+        </div>
+
+        <!-- Messages -->
+        <div class="popup-messages" id="messagesArea">
+            <div class="msg bot-msg">
+                <div class="msg-avatar">🌪️</div>
+                <div class="msg-bubble">
+                    <p>Namaste! 👋 I'm your <strong>WeatherAI Agent</strong>.</p>
+                    <p>I've auto-detected your location as <strong id="welcomeLocName">Mumbai, India</strong>.</p>
+                    <p>Ask me anything like <em>"what is today's weather"</em> or tap a quick chip above!</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Thought Stream -->
+        <div class="popup-thought-stream" id="thoughtStream">
+            <div class="thought-header">
+                <span class="thought-spinner"></span>
+                <span class="thought-label">Autonomous Reasoning</span>
+            </div>
+            <div id="thoughtSteps"></div>
+        </div>
+
+        <!-- Input -->
+        <div class="popup-input-area">
+            <form class="popup-input-form" id="chatForm">
+                <input
+                    type="text"
+                    class="popup-input"
+                    id="chatInput"
+                    placeholder="Ask 'what is today's weather'..."
+                    autocomplete="off"
+                    required
+                />
+                <button type="submit" class="popup-send-btn" id="sendBtn" title="Send">➤</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+    (() => {
+        // ============================
+        // STATE
+        // ============================
+        const API_BASE = "http://127.0.0.1:8000";
+        const detectedTz = Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Kolkata";
+
+        const state = {
+            userCity: "Mumbai",
+            userLocation: "Mumbai, India",
+            userTimezone: detectedTz,
+            isOpen: false,
+            isDragging: false
+        };
+
+        // ============================
+        // DOM REFS
+        // ============================
+        const orb = document.getElementById("widgetOrb");
+        const popup = document.getElementById("chatPopup");
+        const closeBtn = document.getElementById("closeBtn");
+        const minimizeBtn = document.getElementById("minimizeBtn");
+        const clearBtn = document.getElementById("clearBtn");
+        const changeLocBtn = document.getElementById("changeLocBtn");
+        const chatForm = document.getElementById("chatForm");
+        const chatInput = document.getElementById("chatInput");
+        const sendBtn = document.getElementById("sendBtn");
+        const messagesArea = document.getElementById("messagesArea");
+        const thoughtStream = document.getElementById("thoughtStream");
+        const thoughtSteps = document.getElementById("thoughtSteps");
+        const headerLocText = document.getElementById("headerLocText");
+        const bannerLocName = document.getElementById("bannerLocName");
+        const welcomeLocName = document.getElementById("welcomeLocName");
+        const quickChips = document.getElementById("quickChips");
+
+        // ============================
+        // DRAGGABLE ORB LOGIC
+        // ============================
+        let dragState = { active: false, startX: 0, startY: 0, orbX: 0, orbY: 0 };
+
+        function getOrbPosition() {
+            const rect = orb.getBoundingClientRect();
+            return { x: rect.left, y: rect.top };
+        }
+
+        function setOrbPosition(x, y) {
+            const maxX = window.innerWidth - orb.offsetWidth;
+            const maxY = window.innerHeight - orb.offsetHeight;
+            x = Math.max(0, Math.min(x, maxX));
+            y = Math.max(0, Math.min(y, maxY));
+            orb.style.left = x + "px";
+            orb.style.top = y + "px";
+            orb.style.right = "auto";
+            orb.style.bottom = "auto";
+        }
+
+        // Mouse events
+        orb.addEventListener("mousedown", (e) => {
+            e.preventDefault();
+            const pos = getOrbPosition();
+            dragState = { active: true, startX: e.clientX, startY: e.clientY, orbX: pos.x, orbY: pos.y };
+            orb.classList.add("dragging");
+        });
+
+        document.addEventListener("mousemove", (e) => {
+            if (!dragState.active) return;
+            const dx = e.clientX - dragState.startX;
+            const dy = e.clientY - dragState.startY;
+            if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+                state.isDragging = true;
+            }
+            setOrbPosition(dragState.orbX + dx, dragState.orbY + dy);
+        });
+
+        document.addEventListener("mouseup", () => {
+            if (!dragState.active) return;
+            dragState.active = false;
+            orb.classList.remove("dragging");
+            // Delay reset so click handler can check isDragging
+            setTimeout(() => { state.isDragging = false; }, 50);
+        });
+
+        // Touch events (mobile)
+        orb.addEventListener("touchstart", (e) => {
+            const touch = e.touches[0];
+            const pos = getOrbPosition();
+            dragState = { active: true, startX: touch.clientX, startY: touch.clientY, orbX: pos.x, orbY: pos.y };
+            orb.classList.add("dragging");
+        }, { passive: true });
+
+        document.addEventListener("touchmove", (e) => {
+            if (!dragState.active) return;
+            const touch = e.touches[0];
+            const dx = touch.clientX - dragState.startX;
+            const dy = touch.clientY - dragState.startY;
+            if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+                state.isDragging = true;
+            }
+            setOrbPosition(dragState.orbX + dx, dragState.orbY + dy);
+        }, { passive: true });
+
+        document.addEventListener("touchend", () => {
+            if (!dragState.active) return;
+            dragState.active = false;
+            orb.classList.remove("dragging");
+            setTimeout(() => { state.isDragging = false; }, 50);
+        });
+
+        // ============================
+        // TOGGLE CHAT POPUP
+        // ============================
+        orb.addEventListener("click", () => {
+            if (state.isDragging) return; // Ignore click after drag
+            togglePopup();
+        });
+
+        function togglePopup() {
+            if (state.isOpen) {
+                closePopup();
+            } else {
+                openPopup();
+            }
+        }
+
+        function openPopup() {
+            popup.classList.remove("closing");
+            popup.classList.add("visible");
+            state.isOpen = true;
+            // Position popup near the orb
+            repositionPopup();
+            setTimeout(() => chatInput.focus(), 200);
+        }
+
+        function closePopup() {
+            popup.classList.add("closing");
+            state.isOpen = false;
+            setTimeout(() => {
+                popup.classList.remove("visible", "closing");
+            }, 250);
+        }
+
+        function repositionPopup() {
+            const orbRect = orb.getBoundingClientRect();
+            const popupW = 420;
+            const popupH = 620;
+            let left = orbRect.left - popupW - 16;
+            let top = orbRect.top - popupH + 72;
+
+            // If goes off left, place to right of orb
+            if (left < 10) {
+                left = orbRect.right + 16;
+            }
+            // If goes off right
+            if (left + popupW > window.innerWidth - 10) {
+                left = window.innerWidth - popupW - 10;
+            }
+            // If goes off top
+            if (top < 10) {
+                top = 10;
+            }
+            // If goes off bottom
+            if (top + popupH > window.innerHeight - 10) {
+                top = window.innerHeight - popupH - 10;
+            }
+
+            popup.style.left = left + "px";
+            popup.style.top = top + "px";
+            popup.style.right = "auto";
+            popup.style.bottom = "auto";
+        }
+
+        closeBtn.addEventListener("click", closePopup);
+        minimizeBtn.addEventListener("click", closePopup);
+
+        // Clear chat
+        clearBtn.addEventListener("click", () => {
+            messagesArea.innerHTML = "";
+            addBotMessage(`Namaste! 👋 I'm your **WeatherAI Agent**.\n\nI've auto-detected your location as **${escapeHtml(state.userLocation)}**.\n\nAsk me anything like *"what is today's weather"* or tap a quick chip above!`);
+        });
+
+        // Change location
+        changeLocBtn.addEventListener("click", () => {
+            const newCity = prompt("Enter your city name (e.g. Mumbai, Delhi, Bengaluru, Tokyo, London):", state.userCity);
+            if (newCity && newCity.trim()) {
+                state.userCity = newCity.trim();
+                state.userLocation = `${newCity.trim()}, India`;
+                updateLocationUI();
+                addBotMessage(`📍 Location updated to **${state.userCity}**! All queries will now analyze weather for **${state.userCity}**.`);
+            }
+        });
+
+        function updateLocationUI() {
+            headerLocText.textContent = `${state.userLocation} (Custom)`;
+            bannerLocName.textContent = state.userLocation;
+        }
+
+        // Quick chips
+        quickChips.addEventListener("click", (e) => {
+            const chip = e.target.closest(".popup-chip");
+            if (!chip) return;
+            const prompt = chip.getAttribute("data-prompt");
+            if (prompt) {
+                chatInput.value = prompt;
+                handleSend(prompt);
+            }
+        });
+
+        // ============================
+        // CHAT LOGIC
+        // ============================
+        chatForm.addEventListener("submit", (e) => {
+            e.preventDefault();
+            const msg = chatInput.value.trim();
+            if (!msg) return;
+            handleSend(msg);
+        });
+
+        async function handleSend(message) {
+            addUserMessage(message);
+            chatInput.value = "";
+            sendBtn.disabled = true;
+
+            // Show thought stream
+            thoughtStream.classList.add("active");
+            thoughtSteps.innerHTML = "";
+            addThought("🧠", "Analyzing Query", "Detecting intent & localized entities...");
+
+            try {
+                const response = await fetch(`${API_BASE}/api/chat/stream`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        message: message,
+                        user_location: state.userLocation,
+                        user_timezone: state.userTimezone
+                    })
+                });
+
+                if (!response.ok) throw new Error(`Server error: ${response.status}`);
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder("utf-8");
+                let buffer = "";
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split("\n\n");
+                    buffer = lines.pop();
+
+                    for (const line of lines) {
+                        if (line.startsWith("data: ")) {
+                            const raw = line.slice(6).trim();
+                            if (!raw) continue;
+                            try {
+                                const payload = JSON.parse(raw);
+                                handleStreamEvent(payload);
+                            } catch (e) {
+                                console.error("SSE parse error", e);
+                            }
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error("Chat error:", err);
+                addBotMessage(`⚠️ **Connection Error**: Could not reach the WeatherAI server.\n\nMake sure the server is running at \`${API_BASE}\`.\n\n*Error: ${err.message}*`);
+            } finally {
+                sendBtn.disabled = false;
+                setTimeout(() => {
+                    thoughtStream.classList.remove("active");
+                }, 2500);
+            }
+        }
+
+        function handleStreamEvent(payload) {
+            if (payload.event === "trace") {
+                const icons = { thought: "🧠", rag_retrieval: "📚", tool_call: "⚡", tool_result: "📊", summary: "✨" };
+                const icon = icons[payload.step_type] || "🔹";
+                addThought(icon, payload.title, payload.detail);
+            } else if (payload.event === "complete") {
+                const data = payload.data;
+                addBotMessage(data.response, data.rag_sources, data.model_used);
+            } else if (payload.event === "error") {
+                addBotMessage(`⚠️ **Agent Error**: ${payload.message}`);
+            }
+        }
+
+        // ============================
+        // MESSAGE RENDERING
+        // ============================
+        function addUserMessage(text) {
+            const div = document.createElement("div");
+            div.className = "msg user-msg";
+            div.innerHTML = `
+                <div class="msg-avatar">👤</div>
+                <div class="msg-bubble">${escapeHtml(text)}</div>
+            `;
+            messagesArea.appendChild(div);
+            scrollToBottom();
+        }
+
+        function addBotMessage(markdownContent, ragSources = [], modelUsed = "") {
+            const div = document.createElement("div");
+            div.className = "msg bot-msg";
+
+            let sourcesHtml = "";
+            if (ragSources && ragSources.length > 0) {
+                const tags = ragSources.map(s =>
+                    `<span class="source-tag">📖 ${escapeHtml(s.title)} (${Math.round(s.score * 100)}%)</span>`
+                ).join("");
+                sourcesHtml = `
+                    <div class="msg-sources">
+                        ${tags}
+                        <span class="msg-model-tag">⚡ ${escapeHtml(modelUsed || "WeatherAI")}</span>
+                    </div>
+                `;
+            }
+
+            const rendered = typeof marked !== 'undefined' ? marked.parse(markdownContent) : markdownContent;
+
+            div.innerHTML = `
+                <div class="msg-avatar">🌪️</div>
+                <div class="msg-bubble">
+                    ${rendered}
+                    ${sourcesHtml}
+                </div>
+            `;
+            messagesArea.appendChild(div);
+            scrollToBottom();
+        }
+
+        function addThought(icon, title, detail) {
+            const step = document.createElement("div");
+            step.className = "thought-step";
+            step.innerHTML = `<span class="thought-step-title">${icon} ${escapeHtml(title)}:</span> ${escapeHtml(detail)}`;
+            thoughtSteps.appendChild(step);
+            thoughtSteps.scrollTop = thoughtSteps.scrollHeight;
+        }
+
+        function scrollToBottom() {
+            setTimeout(() => {
+                messagesArea.scrollTop = messagesArea.scrollHeight;
+            }, 50);
+        }
+
+        // ============================
+        // LOCATION AUTO-DETECTION
+        // ============================
+        async function detectLocation() {
+            try {
+                const resp = await fetch(`${API_BASE}/api/location/detect`);
+                if (resp.ok) {
+                    const data = await resp.json();
+                    if (data.city) {
+                        state.userCity = data.city;
+                        state.userLocation = `${data.city}, ${data.country || "India"}`;
+                        state.userTimezone = data.timezone || state.userTimezone;
+                        headerLocText.textContent = `${state.userLocation} (Auto)`;
+                        bannerLocName.textContent = state.userLocation;
+                        welcomeLocName.textContent = state.userLocation;
+                    }
+                }
+            } catch (e) {
+                console.log("Using default location: Mumbai, India");
+            }
+        }
+
+        // ============================
+        // UTILITIES
+        // ============================
+        function escapeHtml(str) {
+            if (!str) return "";
+            return String(str)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        // ============================
+        // INIT
+        // ============================
+        detectLocation();
+    })();
+    </script>
+</body>
+</html>

@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WeatherAI - Autonomous Meteorological Agent (MCP • FastAPI • LLM • RAG)</title>
+    <meta name="description" content="State-of-the-art autonomous Weather Intelligence Agent powered by Model Context Protocol (MCP), FastAPI, Large Language Models, and RAG knowledge retrieval.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Marked for Markdown rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="theme-dark">
+    <!-- Ambient Atmospheric Glows -->
+    <div class="ambient-glow glow-1"></div>
+    <div class="ambient-glow glow-2"></div>
+    <div class="ambient-glow glow-3"></div>
+
+    <div class="app-layout">
+        <!-- Navigation Header -->
+        <header class="app-header">
+            <div class="header-left">
+                <div class="logo-container">
+                    <span class="logo-icon">🌪️</span>
+                    <div>
+                        <h1 class="logo-title">Weather<span class="gradient-text">AI</span> Agent</h1>
+                        <p class="logo-subtitle">MCP Tooling • FastAPI • LLM • Semantic RAG</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Global Live City Search Pill -->
+            <div class="header-center">
+                <div class="search-pill">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="quickCityInput" placeholder="Quick search any city (e.g. Zurich, Tokyo)..." autocomplete="off" />
+                    <button id="quickCityBtn" class="pill-btn">Inspect</button>
+                </div>
+                <div class="quick-city-chips">
+                    <button class="chip" data-city="Tokyo">🇯🇵 Tokyo</button>
+                    <button class="chip" data-city="Zurich">🇨🇭 Zurich</button>
+                    <button class="chip" data-city="New York">🇺🇸 New York</button>
+                    <button class="chip" data-city="London">🇬🇧 London</button>
+                    <button class="chip" data-city="Paris">🇫🇷 Paris</button>
+                </div>
+            </div>
+
+            <div class="header-right">
+                <div class="status-indicator" id="systemStatusBadge" title="System Status">
+                    <span class="pulse-dot"></span>
+                    <span class="status-text">FastMCP Ready</span>
+                </div>
+                <button class="icon-btn" id="openSettingsBtn" title="LLM & Agent Settings">⚙️</button>
+            </div>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <nav class="nav-tabs" role="tablist">
+            <button class="tab-btn active" data-tab="tab-agent" role="tab" aria-selected="true">
+                <span class="tab-icon">🤖</span>
+                <span>Weather Intelligence Agent</span>
+                <span class="badge live-badge">Live</span>
+            </button>
+            <button class="tab-btn" data-tab="tab-rag" role="tab" aria-selected="false">
+                <span class="tab-icon">📚</span>
+                <span>RAG Knowledge Store</span>
+                <span class="badge" id="ragDocCountBadge">8 Rules</span>
+            </button>
+            <button class="tab-btn" data-tab="tab-mcp" role="tab" aria-selected="false">
+                <span class="tab-icon">⚡</span>
+                <span>Model Context Protocol (MCP)</span>
+                <span class="badge">5 Tools</span>
+            </button>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- TAB 1: WEATHER AGENT CHAT -->
+            <section id="tab-agent" class="tab-pane active">
+                <div class="agent-grid">
+                    <!-- Left Column: Live Weather Card & Key Metrics -->
+                    <aside class="weather-sidebar">
+                        <div class="glass-card live-weather-card" id="sidebarWeatherCard">
+                            <div class="card-header-row">
+                                <span class="badge live-tag">LIVE MCP TELEMETRY</span>
+                                <span class="time-label" id="weatherTimeLabel">Just now</span>
+                            </div>
+                            
+                            <div class="weather-hero">
+                                <div class="weather-main-info">
+                                    <h2 class="city-name" id="displayCity">Tokyo</h2>
+                                    <p class="city-country" id="displayCountry">Japan</p>
+                                    <div class="temp-row">
+                                        <span class="temperature-val" id="displayTemp">21.5</span>
+                                        <span class="temp-unit">°C</span>
+                                    </div>
+                                    <p class="feels-like">Feels like <span id="displayFeels">21.0</span>°C</p>
+                                </div>
+                                <div class="weather-big-icon" id="displayWeatherIcon">🌤️</div>
+                            </div>
+
+                            <div class="condition-badge-row">
+                                <span class="condition-pill" id="displayCondition">Mainly clear</span>
+                                <span class="severity-pill normal" id="displaySeverity">Normal</span>
+                            </div>
+
+                            <!-- Metrics Grid -->
+                            <div class="metrics-grid">
+                                <div class="metric-box">
+                                    <span class="metric-icon">💨</span>
+                                    <span class="metric-title">Wind Speed</span>
+                                    <span class="metric-value" id="displayWind">12 km/h</span>
+                                </div>
+                                <div class="metric-box">
+                                    <span class="metric-icon">💧</span>
+                                    <span class="metric-title">Humidity</span>
+                                    <span class="metric-value" id="displayHumidity">65%</span>
+                                </div>
+                                <div class="metric-box">
+                                    <span class="metric-icon">☀️</span>
+                                    <span class="metric-title">UV Index</span>
+                                    <span class="metric-value" id="displayUV">3.4 (Mod)</span>
+                                </div>
+                                <div class="metric-box">
+                                    <span class="metric-icon">🍃</span>
+                                    <span class="metric-title">US AQI</span>
+                                    <span class="metric-value" id="displayAQI">42 (Good)</span>
+                                </div>
+                            </div>
+
+                            <!-- 5-Day Forecast Row -->
+                            <div class="forecast-section">
+                                <h4 class="forecast-title">5-Day Outlook</h4>
+                                <div class="forecast-mini-list" id="forecastMiniList">
+                                    <!-- Populated dynamically -->
+                                    <div class="forecast-item">
+                                        <span class="f-day">Today</span>
+                                        <span class="f-icon">🌤️</span>
+                                        <span class="f-temp">22° / 15°</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Active Safety Checklist Card -->
+                        <div class="glass-card advisory-card">
+                            <h4 class="card-title">🛡️ Active RAG Protections</h4>
+                            <p class="card-desc">Safety algorithms automatically cross-reference temperature, wind, and AQI thresholds:</p>
+                            <ul class="protection-list">
+                                <li><span>⛰️ Elevation Lapse Rate:</span> <strong>-6.5°C / 1000m</strong></li>
+                                <li><span>🚁 Drone Max Wind Limit:</span> <strong>38 km/h</strong></li>
+                                <li><span>🏃 Cardiac Drift Threshold:</span> <strong>&gt; 22°C + 75% RH</strong></li>
+                                <li><span>⚠️ Hypothermia Danger:</span> <strong>Damp + 25 km/h wind</strong></li>
+                            </ul>
+                        </div>
+                    </aside>
+
+                    <!-- Right Column: Interactive Chat & Agent Reasoning Trace -->
+                    <div class="chat-workspace glass-card">
+                        <!-- Suggested Scenarios -->
+                        <div class="scenarios-bar">
+                            <span class="scenarios-label">⚡ Prompt Templates:</span>
+                            <button class="scenario-btn" data-prompt="Planning a 15km mountain hike in Zurich tomorrow. What is the forecast, altitude temperature drop, and what safety gear do I need?">
+                                🏔️ Hiking in Zurich
+                            </button>
+                            <button class="scenario-btn" data-prompt="Can I fly my drone in Tokyo today? Check wind speeds, rain risk, and battery conditions.">
+                                🚁 Drone Flight in Tokyo
+                            </button>
+                            <button class="scenario-btn" data-prompt="I am running a half marathon in London this weekend. Evaluate heat index, cardiac drift, and sweat rate.">
+                                🏃 Marathon in London
+                            </button>
+                            <button class="scenario-btn" data-prompt="Traveling to New York for 4 days. Give me a complete clothing packing checklist based on the 5-day forecast.">
+                                🧳 Packing for New York
+                            </button>
+                            <button class="scenario-btn" data-prompt="Compare current weather in Paris vs Dubai. Which is better for outdoor sightseeing?">
+                                ⚖️ Paris vs Dubai
+                            </button>
+                        </div>
+
+                        <!-- Chat Messages Container -->
+                        <div class="chat-messages" id="chatMessages">
+                            <!-- Welcome Message -->
+                            <div class="chat-message bot-message">
+                                <div class="message-avatar">🌪️</div>
+                                <div class="message-content">
+                                    <h3>Welcome to WeatherAI Agent</h3>
+                                    <p>I am your autonomous meteorological intelligence agent. Here is how I operate:</p>
+                                    <ul>
+                                        <li><strong>⚡ Model Context Protocol (MCP)</strong>: I execute real-time tools for current atmospheric sensors, 7-day forecasts, air quality (AQI), and storm alerts.</li>
+                                        <li><strong>📚 Retrieval-Augmented Generation (RAG)</strong>: I ground my answers against meteorological guidelines (hypothermia protocols, UV indices, marathon sweat rates, drone flight envelopes).</li>
+                                        <li><strong>🤖 Multi-Step LLM Synthesis</strong>: I decompose your goals, reason through sensor data, and produce executive-grade actionable briefings.</li>
+                                    </ul>
+                                    <p>Select any scenario chip above or ask me any weather or activity question!</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Live Agent Thought Stream Container (shown during reasoning) -->
+                        <div class="thought-stream-container" id="thoughtStreamContainer" style="display: none;">
+                            <div class="stream-header">
+                                <span class="spinner-dot"></span>
+                                <span class="stream-title">Autonomous Agent Reasoning Loop</span>
+                                <span class="stream-badge">LIVE MCP &amp; RAG EXECUTION</span>
+                            </div>
+                            <div class="thought-stream-steps" id="thoughtStreamSteps">
+                                <!-- Dynamic thought items injected here -->
+                            </div>
+                        </div>
+
+                        <!-- Chat Input Box -->
+                        <div class="chat-input-area">
+                            <form id="chatForm" class="chat-form">
+                                <textarea 
+                                    id="chatInput" 
+                                    rows="2" 
+                                    placeholder="Ask anything (e.g. 'I want to hike in Zurich tomorrow, what should I pack?' or 'Compare Tokyo and London')..." 
+                                    required></textarea>
+                                <button type="submit" id="sendBtn" class="send-btn" title="Send Request">
+                                    <span class="send-icon">➤</span>
+                                    <span class="send-text">Generate</span>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 2: RAG KNOWLEDGE STORE EXPLORER -->
+            <section id="tab-rag" class="tab-pane">
+                <div class="tab-page-header">
+                    <div>
+                        <h2>📚 Meteorological &amp; Activity RAG Knowledge Store</h2>
+                        <p>Dense &amp; sparse vector knowledge base used by the agent to ground answers with authoritative safety criteria.</p>
+                    </div>
+                    <button class="action-btn" id="openAddDocBtn">+ Ingest Custom Advisory</button>
+                </div>
+
+                <!-- RAG Query Sandbox -->
+                <div class="glass-card rag-search-card">
+                    <div class="search-input-group">
+                        <input type="text" id="ragSearchInput" placeholder="Test semantic retrieval across indexed documents (e.g., 'drone wind velocity', 'hypothermia damp clothes')..." />
+                        <button id="ragSearchBtn" class="pill-btn">Search Vector Index</button>
+                    </div>
+                    <div id="ragSearchResults" class="rag-search-results" style="display: none;">
+                        <!-- Results dynamically injected -->
+                    </div>
+                </div>
+
+                <!-- Indexed Knowledge Cards -->
+                <div class="documents-grid" id="ragDocumentsGrid">
+                    <!-- Populated dynamically via /api/rag/documents -->
+                </div>
+            </section>
+
+            <!-- TAB 3: MCP PROTOCOL SANDBOX -->
+            <section id="tab-mcp" class="tab-pane">
+                <div class="tab-page-header">
+                    <div>
+                        <h2>⚡ Model Context Protocol (MCP) Tool Sandbox</h2>
+                        <p>Inspect registered FastMCP server tools, view JSON schemas, and execute tools directly over standard protocol.</p>
+                    </div>
+                    <div class="mcp-server-tag">
+                        <span class="pulse-dot"></span>
+                        <span>FastMCP Server: <strong>WeatherIntelligenceServer</strong></span>
+                    </div>
+                </div>
+
+                <div class="mcp-sandbox-grid">
+                    <!-- Tool Selector & Form -->
+                    <div class="glass-card mcp-runner-card">
+                        <h3>Execute MCP Tool</h3>
+                        <p class="tool-runner-desc">Select a tool to inspect schema and execute live JSON-RPC request:</p>
+                        
+                        <div class="form-group">
+                            <label for="mcpToolSelect">Registered Tool:</label>
+                            <select id="mcpToolSelect" class="styled-select">
+                                <option value="get_live_weather">get_live_weather(city, country)</option>
+                                <option value="get_weather_forecast">get_weather_forecast(city, days)</option>
+                                <option value="get_air_quality">get_air_quality(city)</option>
+                                <option value="get_severe_weather_alerts">get_severe_weather_alerts(city)</option>
+                                <option value="compare_weather">compare_weather(city_a, city_b)</option>
+                            </select>
+                        </div>
+
+                        <!-- Dynamic Argument Fields -->
+                        <div id="mcpToolArgsContainer" class="tool-args-container">
+                            <!-- Dynamic fields based on tool -->
+                        </div>
+
+                        <button id="runMcpToolBtn" class="action-btn run-tool-btn">Execute Tool</button>
+                    </div>
+
+                    <!-- JSON Schema & Response Output -->
+                    <div class="glass-card mcp-output-card">
+                        <div class="code-header">
+                            <span id="mcpCodeTitle">Tool Output / Response</span>
+                            <span class="code-format-tag" id="mcpLatencyTag">0 ms</span>
+                        </div>
+                        <pre class="code-block" id="mcpOutputPre"><code>// Select a tool on the left and click "Execute Tool" to see live MCP response...</code></pre>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- ==========================================
+         FLOATING POP-UP CHATBOT (QUICK ASSISTANT)
+         ========================================== -->
+    <!-- Floating POP Icon Launcher Button -->
+    <div class="floating-chat-launcher" id="chatLauncherBtn" role="button" tabindex="0" title="Tap to chat with WeatherAI Agent">
+        <div class="launcher-pulse"></div>
+        <div class="launcher-avatar">
+            <span class="launcher-icon">🌪️</span>
+            <span class="online-indicator"></span>
+        </div>
+        <div class="launcher-pill">
+            <span class="launcher-label">Weather Agent</span>
+            <span class="launcher-loc" id="launcherLocText">📍 Mumbai</span>
+        </div>
+    </div>
+
+    <!-- Floating Chatbot Window / Pop-up Drawer -->
+    <div class="floating-chat-window glass-card" id="floatingChatWindow" style="display: none;" role="dialog" aria-label="Weather Assistant Chat">
+        <!-- Header -->
+        <div class="float-chat-header">
+            <div class="float-header-left">
+                <div class="float-avatar">🌪️</div>
+                <div class="float-title-wrap">
+                    <h3 class="float-title">WeatherAI Assistant</h3>
+                    <div class="float-loc-pill" id="floatLocBadge" title="Click to change location">
+                        <span class="pulse-dot"></span>
+                        <span id="floatLocText">📍 Mumbai, India (Auto)</span>
+                    </div>
+                </div>
+            </div>
+            <div class="float-header-actions">
+                <button class="float-action-btn" id="minimizeChatBtn" title="Minimize to icon">—</button>
+                <button class="float-action-btn" id="clearChatBtn" title="Clear chat history">🗑️</button>
+                <button class="float-action-btn" id="closeChatBtn" title="Close">✕</button>
+            </div>
+        </div>
+
+        <!-- Location Context Ribbon -->
+        <div class="float-detect-banner">
+            <span class="detect-icon">🛰️</span>
+            <span class="detect-text">Location: <strong id="detectedLocSpan">Mumbai, India</strong></span>
+            <button class="change-loc-btn" id="changeLocBtn" title="Set custom city">Change</button>
+        </div>
+
+        <!-- Quick Prompt Chips -->
+        <div class="float-quick-chips">
+            <button class="float-chip" data-prompt="what is todays weather">🌤️ Today's Weather</button>
+            <button class="float-chip" data-prompt="will it rain today in Mumbai?">☔ Rain Today?</button>
+            <button class="float-chip" data-prompt="what should I wear today in Mumbai?">👕 What to Wear?</button>
+            <button class="float-chip" data-prompt="check Mumbai air quality AQI and smog">🍃 Air Quality &amp; AQI</button>
+        </div>
+
+        <!-- Message History -->
+        <div class="float-messages-container" id="floatChatMessages">
+            <div class="chat-message bot-message">
+                <div class="message-avatar">🌪️</div>
+                <div class="message-content">
+                    <p>Namaste! I'm your WeatherAI Agent. I've automatically resolved your sector to <strong>Mumbai, India</strong>.</p>
+                    <p>Ask me <em>"what is todays weather"</em> or tap any quick prompt chip above!</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Streaming Thought Steps -->
+        <div class="float-thought-stream" id="floatThoughtStream" style="display: none;">
+            <div class="stream-header">
+                <span class="spinner-dot"></span>
+                <span class="stream-title">Autonomous Reasoning...</span>
+            </div>
+            <div class="float-thought-steps" id="floatThoughtSteps"></div>
+        </div>
+
+        <!-- Chat Input Form -->
+        <form id="floatChatForm" class="float-chat-form">
+            <input 
+                type="text" 
+                id="floatChatInput" 
+                placeholder="Ask 'what is todays weather' or anything..." 
+                autocomplete="off" 
+                required 
+            />
+            <button type="submit" id="floatSendBtn" class="float-send-btn" title="Send Query">
+                <span>➤</span>
+            </button>
+        </form>
+    </div>
+
+    <!-- SETTINGS MODAL -->
+    <div class="modal-overlay" id="settingsModal" style="display: none;">
+        <div class="modal-box glass-card">
+            <div class="modal-header">
+                <h3>⚙️ Agent &amp; LLM Configuration</h3>
+                <button class="close-modal-btn" id="closeSettingsBtn">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="providerSelect">Primary LLM Engine:</label>
+                    <select id="providerSelect" class="styled-select">
+                        <option value="auto">Auto (Gemini / OpenAI / Heuristic)</option>
+                        <option value="gemini">Google Gemini (Gemini 2.0 Flash)</option>
+                        <option value="openai">OpenAI (GPT-4o-mini)</option>
+                        <option value="offline">Built-in Neural Synthesis Engine (Zero-Config)</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="apiKeyInput">API Key (Optional):</label>
+                    <input type="password" id="apiKeyInput" placeholder="Enter Gemini or OpenAI API Key if desired..." />
+                    <small class="helper-text">Leave empty to use built-in Neural Synthesis Engine with 100% offline accuracy & zero cost.</small>
+                </div>
+
+                <div class="system-specs-box">
+                    <h4>Active Architecture Stack:</h4>
+                    <ul>
+                        <li><strong>MCP Server</strong>: FastMCP 1.26 (Tools: Live Weather, Forecast, Air Quality, Alerts)</li>
+                        <li><strong>FastAPI</strong>: 0.133.1 (Async Event Streaming & REST)</li>
+                        <li><strong>RAG</strong>: Hybrid Sparse-Dense Vector Index (8 Curated Advisory Norms)</li>
+                        <li><strong>Telemetry</strong>: Open-Meteo Global Meteorological Observations</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="action-btn" id="saveSettingsBtn">Save Configuration</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ADD CUSTOM RAG DOCUMENT MODAL -->
+    <div class="modal-overlay" id="addDocModal" style="display: none;">
+        <div class="modal-box glass-card">
+            <div class="modal-header">
+                <h3>📚 Ingest Custom Meteorological Document</h3>
+                <button class="close-modal-btn" id="closeAddDocBtn">✕</button>
+            </div>
+            <div class="modal-body">
+                <form id="addDocForm">
+                    <div class="form-group">
+                        <label for="docTitleInput">Document Title:</label>
+                        <input type="text" id="docTitleInput" placeholder="e.g. Mount Rainier Climbing Weather Criteria" required />
+                    </div>
+                    <div class="form-group">
+                        <label for="docCategorySelect">Category:</label>
+                        <select id="docCategorySelect" class="styled-select">
+                            <option value="outdoor_safety">Outdoor Safety</option>
+                            <option value="health_safety">Health &amp; Medicine</option>
+                            <option value="sports_athletics">Sports &amp; Athletics</option>
+                            <option value="aviation_drone">Aviation &amp; Drones</option>
+                            <option value="emergency_response">Emergency Response</option>
+                            <option value="travel_wardrobe">Travel &amp; Wardrobe</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="docTagsInput">Tags (comma-separated):</label>
+                        <input type="text" id="docTagsInput" placeholder="e.g. climbing, snow, wind, gear" />
+                    </div>
+                    <div class="form-group">
+                        <label for="docContentInput">Advisory Content / Operational Thresholds:</label>
+                        <textarea id="docContentInput" rows="5" placeholder="Specify meteorological rules, temperature cutoffs, wind limits, safety procedures..." required></textarea>
+                    </div>
+                    <button type="submit" class="action-btn">Index Document</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
