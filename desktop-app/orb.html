@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      width: 80px;
+      height: 80px;
+      background: transparent !important;
+      overflow: hidden;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    .orb {
+      width: 72px;
+      height: 72px;
+      margin: 4px;
+      border-radius: 50%;
+      background: linear-gradient(145deg, #1a2744, #0d1526);
+      border: 2.5px solid rgba(56, 189, 248, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: grab;
+      position: relative;
+      box-shadow:
+        0 0 20px rgba(56, 189, 248, 0.3),
+        0 0 40px rgba(56, 189, 248, 0.1),
+        0 6px 20px rgba(0,0,0,0.6),
+        inset 0 1px 0 rgba(255,255,255,0.1);
+      transition: transform 0.15s ease, box-shadow 0.2s ease;
+    }
+
+    .orb:hover {
+      transform: scale(1.08);
+      box-shadow:
+        0 0 30px rgba(56, 189, 248, 0.5),
+        0 0 60px rgba(56, 189, 248, 0.2),
+        0 10px 28px rgba(0,0,0,0.7),
+        inset 0 1px 0 rgba(255,255,255,0.12);
+    }
+
+    .orb:active {
+      cursor: grabbing;
+      transform: scale(1.12);
+    }
+
+    .orb.dragging {
+      cursor: grabbing;
+      transform: scale(1.15);
+      box-shadow:
+        0 0 45px rgba(56, 189, 248, 0.6),
+        0 0 90px rgba(56, 189, 248, 0.25),
+        0 16px 40px rgba(0,0,0,0.8);
+    }
+
+    .orb-icon {
+      font-size: 2rem;
+      line-height: 1;
+      pointer-events: none;
+      filter: drop-shadow(0 2px 6px rgba(56,189,248,0.5));
+    }
+
+    /* Pulsing ring */
+    .pulse-ring {
+      position: absolute;
+      inset: -7px;
+      border-radius: 50%;
+      border: 2px solid rgba(56, 189, 248, 0.35);
+      animation: pulse 2.5s ease-in-out infinite;
+      pointer-events: none;
+    }
+    .pulse-ring-2 {
+      animation-delay: 1.2s;
+      border-color: rgba(167, 139, 250, 0.2);
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 0.7; }
+      50%       { transform: scale(1.22); opacity: 0; }
+    }
+
+    /* Green online dot */
+    .status-dot {
+      position: absolute;
+      bottom: 5px;
+      right: 5px;
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: #34d399;
+      border: 2.5px solid #0d1526;
+      box-shadow: 0 0 8px rgba(52,211,153,0.7);
+      pointer-events: none;
+    }
+
+    /* Chat open indicator */
+    .orb.chat-open {
+      border-color: rgba(52, 211, 153, 0.7);
+      box-shadow:
+        0 0 25px rgba(52, 211, 153, 0.4),
+        0 0 50px rgba(52, 211, 153, 0.15),
+        0 6px 20px rgba(0,0,0,0.6);
+    }
+
+    /* Tooltip on hover */
+    .tooltip {
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid rgba(56,189,248,0.25);
+      color: #e2e8f0;
+      font-family: 'Segoe UI', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+      padding: 5px 10px;
+      border-radius: 8px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+    .orb:hover .tooltip { opacity: 1; }
+  </style>
+</head>
+<body>
+  <div class="orb" id="orb">
+    <div class="pulse-ring"></div>
+    <div class="pulse-ring pulse-ring-2"></div>
+    <span class="orb-icon">🌪️</span>
+    <span class="status-dot"></span>
+    <span class="tooltip">WeatherAI Chat</span>
+  </div>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+    const orb = document.getElementById('orb');
+
+    let chatOpen = false;
+    let isDragging = false;
+    let dragStartX, dragStartY;
+    let winStartX, winStartY;
+
+    // ─── DRAG TO MOVE ─────────────────────────────────────────────────────
+    orb.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      isDragging = false;
+      dragStartX = e.screenX;
+      dragStartY = e.screenY;
+
+      // Get current window position via a sync approach
+      winStartX = window.screenX;
+      winStartY = window.screenY;
+
+      orb.classList.add('dragging');
+
+      const onMove = (me) => {
+        const dx = me.screenX - dragStartX;
+        const dy = me.screenY - dragStartY;
+        if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+          isDragging = true;
+        }
+        const newX = winStartX + dx;
+        const newY = winStartY + dy;
+        ipcRenderer.send('move-orb', { x: newX, y: newY });
+      };
+
+      const onUp = () => {
+        orb.classList.remove('dragging');
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        setTimeout(() => { isDragging = false; }, 50);
+      };
+
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+
+    // ─── CLICK TO TOGGLE CHAT ─────────────────────────────────────────────
+    orb.addEventListener('click', () => {
+      if (isDragging) return;
+
+      chatOpen = !chatOpen;
+      orb.classList.toggle('chat-open', chatOpen);
+
+      const orbBounds = {
+        x: window.screenX,
+        y: window.screenY,
+        width: window.outerWidth,
+        height: window.outerHeight
+      };
+      ipcRenderer.send('toggle-chat', orbBounds);
+    });
+
+    // When chat window closes externally
+    ipcRenderer.on('chat-closed', () => {
+      chatOpen = false;
+      orb.classList.remove('chat-open');
+    });
+
+    // Right-click context menu
+    orb.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      const menu = document.createElement('div');
+      menu.style.cssText = `
+        position: fixed; top: ${e.clientY}px; left: ${e.clientX}px;
+        background: rgba(15,23,42,0.97); border: 1px solid rgba(56,189,248,0.25);
+        border-radius: 10px; padding: 6px 0; z-index: 9999;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.5); font-family: 'Segoe UI', sans-serif;
+        font-size: 13px; color: #e2e8f0; min-width: 160px;
+      `;
+      menu.innerHTML = `
+        <div class="mi" onclick="ipcRenderer.send('quit-app')"
+          style="padding:8px 16px;cursor:pointer;"
+          onmouseover="this.style.background='rgba(56,189,248,0.1)'"
+          onmouseout="this.style.background='transparent'">
+          ✕ Quit WeatherAI
+        </div>
+      `;
+      document.body.appendChild(menu);
+      const remove = () => { menu.remove(); document.removeEventListener('click', remove); };
+      setTimeout(() => document.addEventListener('click', remove), 0);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,40 @@
+{
+  "name": "weatherai-desktop-widget",
+  "version": "1.0.0",
+  "description": "WeatherAI Floating Desktop Widget - Draggable chatbot with live weather intelligence",
+  "main": "main.js",
+  "author": "Prasad Gawade",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win --x64"
+  },
+  "devDependencies": {
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.prasad.weatherai-widget",
+    "productName": "WeatherAI Widget",
+    "copyright": "Copyright © 2026 Prasad Gawade",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "assets/icon.ico",
+      "signingHashAlgorithms": null,
+      "sign": null
+    },
+    "files": [
+      "**/*",
+      "!node_modules/.cache/**",
+      "!dist/**"
+    ]
+  }
+}
